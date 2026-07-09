@@ -164,5 +164,100 @@ CREATE TABLE `unisystem`.`lecturer_comittees` (
     ON DELETE NO ACTION
     ON UPDATE NO ACTION);
 
+--Junction table for many-to-many relationship 
+
+
+CREATE TABLE `unisystem`.`enrollments` (
+  `student_id` INT NOT NULL,
+  `course_code` INT NOT NULL,
+  `lecturer_id` INT NOT NULL,
+  `semester` VARCHAR(45) NOT NULL,
+  `grade` VARCHAR(45) NOT NULL,
+  PRIMARY KEY (`student_id`, `course_code`, `semester`),
+  INDEX `FK_course_code_courses_idx` (`course_code` ASC) VISIBLE,
+  INDEX `FK_lecturer_id_lecturers_idx` (`lecturer_id` ASC) VISIBLE,
+  CONSTRAINT `FK_student_id_students`
+    FOREIGN KEY (`student_id`)
+    REFERENCES `unisystem`.`students` (`idstudents`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `FK_course_code_courses`
+    FOREIGN KEY (`course_code`)
+    REFERENCES `unisystem`.`course` (`Course_code`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `FK_lecturer_id_lecturers`
+    FOREIGN KEY (`lecturer_id`)
+    REFERENCES `unisystem`.`lecturers` (`LecturerID`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION);
+
+
+CREATE TABLE `unisystem`.`project_team_members` (
+  `project_title` VARCHAR(245) NOT NULL,
+  `lecturer_id` INT NOT NULL,
+  PRIMARY KEY (`project_title`, `lecturer_id`),
+  INDEX `FK_project_team_members_lecturer_id_idx` (`lecturer_id` ASC) VISIBLE,
+  CONSTRAINT `FK_project_title_research_projects`
+    FOREIGN KEY (`project_title`)
+    REFERENCES `unisystem`.`researchprojects` (`ProjectTitle`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `FK_project_team_members_lecturers`
+    FOREIGN KEY (`lecturer_id`)
+    REFERENCES `unisystem`.`lecturers` (`LecturerID`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION);
+
+
+
+CREATE TABLE `unisystem`.`program_course_requirements` (
+  `program_name` VARCHAR(245) NOT NULL,
+  `course_code` INT NOT NULL,
+  PRIMARY KEY (`program_name`, `course_code`),
+  INDEX `FK_program_course_requirements_course_code_courses_idx` (`course_code` ASC) VISIBLE,
+  INDEX `FK_program_requirements_program_name_programs_idx` (`program_name` ASC) VISIBLE,
+  CONSTRAINT `FK_program_course_requirements_program_name_programs`
+    FOREIGN KEY (`program_name`)
+    REFERENCES `unisystem`.`programs` (`name`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `FK_program_course_requirements_course_code_courses`
+    FOREIGN KEY (`course_code`)
+    REFERENCES `unisystem`.`course` (`Course_code`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION);
+
+
+CREATE TABLE `unisystem`.`course_prerequisites` (
+  `course_code` INT NOT NULL,
+  `prerequisite_course_code` INT NOT NULL,
+  PRIMARY KEY (`course_code`, `prerequisite_course_code`),
+  INDEX `FK_course_prerequisites_prerequisites_course_code_course_idx` (`prerequisite_course_code` ASC) VISIBLE,
+  CONSTRAINT `FK_course_prerequisites_course_code_course`
+    FOREIGN KEY (`course_code`)
+    REFERENCES `unisystem`.`course` (`Course_code`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `FK_course_prerequisites_required`
+    FOREIGN KEY (`prerequisite_course_code`)
+    REFERENCES `unisystem`.`course` (`Course_code`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION);
+
+
+
+CREATE TABLE `unisystem`.`student_organizations_registration` (
+  `student_id` INT NOT NULL,
+  `organization_name` VARCHAR(45) NOT NULL,
+  PRIMARY KEY (`student_id`, `organization_name`),
+  CONSTRAINT `FK_student_organizations_registration_student_id_students`
+    FOREIGN KEY (`student_id`)
+    REFERENCES `unisystem`.`students` (`idstudents`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION);
+
+
+
 
 
