@@ -1,0 +1,8 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Local configuration (credentials) and generated demo database
+config.ini
+UniversitySystem/database/university.db
