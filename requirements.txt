@@ -1,0 +1,5 @@
+
+mysql-connector-python>=8.0
+
+# Development tooling (PEP-8 checking)
+flake8
