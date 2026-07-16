@@ -2,6 +2,30 @@ CREATE DATABASE IF NOT EXISTS unisystem;
 USE unisystem;
 
 
+CREATE TABLE `unisystem`.`departments` (
+  `DepartmentID` INT NOT NULL AUTO_INCREMENT,
+  `DepartmentName` VARCHAR(45) NOT NULL,
+  `Faculty` VARCHAR(45) NOT NULL,
+  PRIMARY KEY (`DepartmentID`),
+  UNIQUE INDEX `DepartmentName_UNIQUE` (`DepartmentName` ASC) VISIBLE);
+
+
+CREATE TABLE `unisystem`.`lecturers` (
+  `LecturerID` INT NOT NULL,
+  `lecturersfirstname` VARCHAR(45) NOT NULL,
+  `lecturerslastname` VARCHAR(45) NOT NULL,
+  `departmentID` INT NOT NULL,
+  `contact_info` VARCHAR(255) NOT NULL,
+  PRIMARY KEY (`LecturerID`),
+  INDEX `departmentID_idx` (`departmentID` ASC) VISIBLE,
+  CONSTRAINT `FK_lecturers_departments`
+    FOREIGN KEY (`departmentID`)
+    REFERENCES `unisystem`.`departments` (`DepartmentID`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION
+);
+
+
 CREATE TABLE `unisystem`.`students` (
   `idstudents` INT NOT NULL,
   `studentfirstname` VARCHAR(45) NOT NULL,
@@ -11,16 +35,15 @@ CREATE TABLE `unisystem`.`students` (
   `program_enrolled` VARCHAR(245) NOT NULL,
   `year_of_study` INT NOT NULL,
   `graduation_status` VARCHAR(45) NOT NULL,
-  PRIMARY KEY (`idstudents`));
-
-
-CREATE TABLE `unisystem`.`lecturers` (
-  `LecturerID` INT NOT NULL,
-  `department` VARCHAR(45) NOT NULL,
-  `lecturersfirstname` VARCHAR(45) NOT NULL,
-  `lecturerslastname` VARCHAR(45) NOT NULL,
-  `departmentID` INT NOT NULL,
-  PRIMARY KEY (`LecturerID`));
+  `advisor_id` INT NULL,
+  PRIMARY KEY (`idstudents`),
+  INDEX `advisor_id_idx` (`advisor_id` ASC) VISIBLE,
+  CONSTRAINT `FK_students_advisors`
+    FOREIGN KEY (`advisor_id`)
+    REFERENCES `unisystem`.`lecturers` (`LecturerID`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION
+);
 
 
   CREATE TABLE `unisystem`.`non_academic_staff` (
@@ -33,29 +56,38 @@ CREATE TABLE `unisystem`.`lecturers` (
   `contact_details` VARCHAR(45) NOT NULL,
   `salary_information` VARCHAR(45) NOT NULL,
   `emergency_contact` VARCHAR(245) NOT NULL,
-  PRIMARY KEY (`staffID`));
+  PRIMARY KEY (`staffID`),
+  INDEX `departmentID_idx` (`departmentID` ASC) VISIBLE,
+  CONSTRAINT `FK_non_academic_staff_departments`
+    FOREIGN KEY (`departmentID`)
+    REFERENCES `unisystem`.`departments` (`DepartmentID`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION
+  );
+
 
   CREATE TABLE `unisystem`.`course` (
   `Course_code` INT NOT NULL,
   `name` VARCHAR(45) NOT NULL,
   `description` VARCHAR(245) NOT NULL,
-  `department_level` INT NOT NULL,
+  `departmentID` INT NOT NULL,
+  `level` INT NULL,
   `credits` INT NOT NULL,
   `schedule` VARCHAR(45) NOT NULL,
-  PRIMARY KEY (`Course_code`));
-
-
-CREATE TABLE `unisystem`.`departments` (
-  `DepartmentName` VARCHAR(45) NOT NULL,
-  `Faculty` VARCHAR(45) NOT NULL,
-  PRIMARY KEY (`DepartmentName`));
+  PRIMARY KEY (`Course_code`),
+  INDEX `departmentID_idx` (`departmentID` ASC) VISIBLE,
+  CONSTRAINT `FK_course_departments`
+    FOREIGN KEY (`departmentID`)
+    REFERENCES `unisystem`.`departments` (`DepartmentID`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION
+  );
 
 
 CREATE TABLE `unisystem`.`programs` (
   `name` VARCHAR(45) NOT NULL,
   `degreeAwarded` VARCHAR(45) NOT NULL,
-  `duration` VARCHAR(45) NOT NULL,
-  `programscol` VARCHAR(45) NOT NULL,
+  `duration_years` INT NOT NULL,
   PRIMARY KEY (`name`));
 
 
@@ -65,7 +97,6 @@ CREATE TABLE `unisystem`.`researchprojects` (
   PRIMARY KEY (`ProjectTitle`));
 
 
---foreign keys/junction tables
 CREATE TABLE `unisystem`.`student_disciplinary_records` (
   `recordID` INT NOT NULL,
   `idstudents` INT NOT NULL,
@@ -108,6 +139,7 @@ CREATE TABLE `unisystem`.`lecturer_publications` (
   `publicationID` INT NOT NULL,
   `LecturerID` INT NOT NULL,
   `title` VARCHAR(245) NOT NULL,
+  `publication_year` YEAR NULL,
   PRIMARY KEY (`publicationID`),
   INDEX `FK_lecturer_publications_lecturers_idx` (`LecturerID` ASC) VISIBLE,
   CONSTRAINT `FK_lecturer_publications_lecturers`
@@ -144,12 +176,12 @@ CREATE TABLE `unisystem`.`course_materials` (
 
 
 CREATE TABLE `unisystem`.`department_research_areas` (
-  `department_name` VARCHAR(45) NOT NULL,
+  `DepartmentID` INT NOT NULL,
   `research_area` VARCHAR(45) NOT NULL,
-  PRIMARY KEY (`department_name`, `research_area`),
-  CONSTRAINT `department_name`
-    FOREIGN KEY (`department_name`)
-    REFERENCES `unisystem`.`departments` (`DepartmentName`)
+  PRIMARY KEY (`DepartmentID`, `research_area`),
+  CONSTRAINT `FK_department_research_areas_departments`
+    FOREIGN KEY (`DepartmentID`)
+    REFERENCES `unisystem`.`departments` (`DepartmentID`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION);
 
@@ -164,15 +196,13 @@ CREATE TABLE `unisystem`.`lecturer_comittees` (
     ON DELETE NO ACTION
     ON UPDATE NO ACTION);
 
---Junction table for many-to-many relationship 
-
 
 CREATE TABLE `unisystem`.`enrollments` (
   `student_id` INT NOT NULL,
   `course_code` INT NOT NULL,
   `lecturer_id` INT NOT NULL,
   `semester` VARCHAR(45) NOT NULL,
-  `grade` VARCHAR(45) NOT NULL,
+  `grade` DECIMAL(5,2) NULL,
   PRIMARY KEY (`student_id`, `course_code`, `semester`),
   INDEX `FK_course_code_courses_idx` (`course_code` ASC) VISIBLE,
   INDEX `FK_lecturer_id_lecturers_idx` (`lecturer_id` ASC) VISIBLE,
@@ -256,6 +286,7 @@ CREATE TABLE `unisystem`.`student_organizations_registration` (
     REFERENCES `unisystem`.`students` (`idstudents`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION);
+
 
 
 
