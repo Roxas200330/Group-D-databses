@@ -1,4 +1,4 @@
-# Design Notes — Supporting Evidence for the Report
+# Design Notes
 
 ## 1. System overview (citable facts)
 
