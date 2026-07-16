@@ -1,0 +1,19 @@
+# Copy this file to config.ini and adjust as needed.
+# config.ini is git-ignored so credentials never reach the repository.
+# Without a config.ini the application defaults to the SQLite demo
+# database (created automatically on first run).
+
+[database]
+# sqlite (zero-setup demo) or mysql (production DBMS)
+backend = sqlite
+
+[sqlite]
+# Relative paths are resolved from the repository root.
+path = UniversitySystem/database/university.db
+
+[mysql]
+host = localhost
+port = 3306
+user = root
+password = password
+database = unisystem
