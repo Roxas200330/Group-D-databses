@@ -7,7 +7,8 @@ CREATE TABLE `unisystem`.`departments` (
   `DepartmentID` INT NOT NULL AUTO_INCREMENT,
   `DepartmentName` VARCHAR(45) NOT NULL,
   `Faculty` VARCHAR(45) NOT NULL,
-  PRIMARY KEY (`DepartmentID`));
+  PRIMARY KEY (`DepartmentID`),
+  UNIQUE INDEX `DepartmentName_UNIQUE` (`DepartmentName` ASC) VISIBLE);
 
 
 CREATE TABLE `unisystem`.`lecturers` (
@@ -71,6 +72,7 @@ CREATE TABLE `unisystem`.`students` (
   `name` VARCHAR(45) NOT NULL,
   `description` VARCHAR(245) NOT NULL,
   `departmentID` INT NOT NULL,
+  `level` INT NULL,
   `credits` INT NOT NULL,
   `schedule` VARCHAR(45) NOT NULL,
   PRIMARY KEY (`Course_code`),
