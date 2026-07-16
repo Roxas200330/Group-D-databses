@@ -21,31 +21,41 @@ SOURCES = (
     },
     {
         "name": "Lecturers",
-        "from_clause": "lecturers",
+        "from_clause": (
+            "lecturers AS l\n"
+            "    JOIN departments AS d"
+            " ON d.DepartmentID = l.departmentID"
+        ),
         "columns": (
-            ("lecturer_id", "LecturerID"),
-            ("first_name", "lecturersfirstname"),
-            ("last_name", "lecturerslastname"),
-            ("department", "department"),
-            ("contact_info", "contactinfo"),
+            ("lecturer_id", "l.LecturerID"),
+            ("first_name", "l.lecturersfirstname"),
+            ("last_name", "l.lecturerslastname"),
+            ("department", "d.DepartmentName"),
+            ("contact_info", "l.contact_info"),
         ),
     },
     {
         "name": "Courses",
-        "from_clause": "course",
+        "from_clause": (
+            "course AS c\n"
+            "    JOIN departments AS d"
+            " ON d.DepartmentID = c.departmentID"
+        ),
         "columns": (
-            ("course_code", "Course_code"),
-            ("name", "name"),
-            ("description", "description"),
-            ("level", "department_level"),
-            ("credits", "credits"),
-            ("schedule", "schedule"),
+            ("course_code", "c.Course_code"),
+            ("name", "c.name"),
+            ("description", "c.description"),
+            ("department", "d.DepartmentName"),
+            ("level", "c.level"),
+            ("credits", "c.credits"),
+            ("schedule", "c.schedule"),
         ),
     },
     {
         "name": "Departments",
         "from_clause": "departments",
         "columns": (
+            ("department_id", "DepartmentID"),
             ("department_name", "DepartmentName"),
             ("faculty", "Faculty"),
         ),
@@ -61,16 +71,20 @@ SOURCES = (
     },
     {
         "name": "Non-academic staff",
-        "from_clause": "non_academic_staff",
+        "from_clause": (
+            "non_academic_staff AS n\n"
+            "    JOIN departments AS d"
+            " ON d.DepartmentID = n.departmentID"
+        ),
         "columns": (
-            ("staff_id", "staffID"),
-            ("first_name", "firstname"),
-            ("last_name", "lastname"),
-            ("job_title", "job_title"),
-            ("department", "department"),
-            ("employment_type", "employment_type"),
-            ("contact_details", "contact_details"),
-            ("salary_information", "salary_information"),
+            ("staff_id", "n.staffID"),
+            ("first_name", "n.firstname"),
+            ("last_name", "n.lastname"),
+            ("job_title", "n.job_title"),
+            ("department", "d.DepartmentName"),
+            ("employment_type", "n.employment_type"),
+            ("contact_details", "n.contact_details"),
+            ("salary_information", "n.salary_information"),
         ),
     },
     {
@@ -116,7 +130,9 @@ SOURCES = (
         "name": "Students with advisors (joined)",
         "from_clause": (
             "students AS s\n"
-            "    JOIN lecturers AS l ON l.LecturerID = s.advisor_id"
+            "    JOIN lecturers AS l ON l.LecturerID = s.advisor_id\n"
+            "    JOIN departments AS d"
+            " ON d.DepartmentID = l.departmentID"
         ),
         "columns": (
             ("student_id", "s.idstudents"),
@@ -126,20 +142,22 @@ SOURCES = (
             ("year_of_study", "s.year_of_study"),
             ("advisor_first_name", "l.lecturersfirstname"),
             ("advisor_last_name", "l.lecturerslastname"),
-            ("advisor_department", "l.department"),
-            ("advisor_contact", "l.contactinfo"),
+            ("advisor_department", "d.DepartmentName"),
+            ("advisor_contact", "l.contact_info"),
         ),
     },
     {
         "name": "Publications with lecturers (joined)",
         "from_clause": (
             "lecturer_publications AS p\n"
-            "    JOIN lecturers AS l ON l.LecturerID = p.LecturerID"
+            "    JOIN lecturers AS l ON l.LecturerID = p.LecturerID\n"
+            "    JOIN departments AS d"
+            " ON d.DepartmentID = l.departmentID"
         ),
         "columns": (
             ("lecturer_first_name", "l.lecturersfirstname"),
             ("lecturer_last_name", "l.lecturerslastname"),
-            ("department", "l.department"),
+            ("department", "d.DepartmentName"),
             ("title", "p.title"),
             ("publication_year", "p.publication_year"),
         ),
