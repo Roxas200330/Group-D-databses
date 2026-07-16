@@ -12,6 +12,9 @@ input can never be interpreted as SQL.
 ``main.py``: title, parameter prompts and the function to call.
 """
 
+import querybuilder
+import schema_meta
+
 STUDENTS_IN_COURSE_SQL = """
     SELECT s.idstudents AS student_id,
            s.studentfirstname AS first_name,
@@ -49,11 +52,12 @@ LECTURERS_BY_EXPERTISE_SQL = """
     SELECT l.LecturerID AS lecturer_id,
            l.lecturersfirstname AS first_name,
            l.lecturerslastname AS last_name,
-           l.department,
+           d.DepartmentName AS department,
            x.area_of_expertise,
-           l.contactinfo
+           l.contact_info
     FROM lecturer_expertise AS x
     JOIN lecturers AS l ON l.LecturerID = x.LecturerID
+    JOIN departments AS d ON d.DepartmentID = l.departmentID
     WHERE LOWER(x.area_of_expertise) LIKE LOWER(?)
     ORDER BY l.lecturerslastname
 """
@@ -66,7 +70,8 @@ COURSES_BY_DEPARTMENT_SQL = """
     FROM enrollments AS e
     JOIN course AS c ON c.Course_code = e.course_code
     JOIN lecturers AS l ON l.LecturerID = e.lecturer_id
-    WHERE LOWER(l.department) = LOWER(?)
+    JOIN departments AS d ON d.DepartmentID = l.departmentID
+    WHERE LOWER(d.DepartmentName) = LOWER(?)
     ORDER BY c.Course_code
 """
 
@@ -95,10 +100,11 @@ ADVISOR_CONTACT_SQL = """
            s.studentlastname AS student_last_name,
            l.lecturersfirstname AS advisor_first_name,
            l.lecturerslastname AS advisor_last_name,
-           l.department,
-           l.contactinfo AS advisor_contact
+           d.DepartmentName AS department,
+           l.contact_info AS advisor_contact
     FROM students AS s
     JOIN lecturers AS l ON l.LecturerID = s.advisor_id
+    JOIN departments AS d ON d.DepartmentID = l.departmentID
     WHERE s.idstudents = ?
 """
 
@@ -118,11 +124,12 @@ ADVISEES_OF_LECTURER_SQL = """
 PUBLICATIONS_IN_YEAR_SQL = """
     SELECT l.lecturersfirstname AS first_name,
            l.lecturerslastname AS last_name,
-           l.department,
+           d.DepartmentName AS department,
            p.title,
            p.publication_year
     FROM lecturer_publications AS p
     JOIN lecturers AS l ON l.LecturerID = p.LecturerID
+    JOIN departments AS d ON d.DepartmentID = l.departmentID
     WHERE p.publication_year = ?
     ORDER BY l.lecturerslastname, p.title
 """
@@ -205,37 +212,170 @@ def publications_in_year(database, year):
     return database.run(PUBLICATIONS_IN_YEAR_SQL, (year,))
 
 
-# Menu definition used by main.py. Each parameter is a tuple of
-# (prompt shown to the user, converter applied to the raw input).
+def _match_source(name):
+    """Resolve a user-typed name to a whitelisted data source name.
+
+    Matching is case-insensitive; an unambiguous prefix is accepted
+    (e.g. "cour" -> "Courses"). Raises ValueError with the list of
+    valid names when nothing (or more than one source) matches.
+    """
+    wanted = name.strip().lower()
+    names = schema_meta.SOURCE_NAMES
+    for candidate in names:
+        if candidate.lower() == wanted:
+            return candidate
+    partial = [c for c in names if c.lower().startswith(wanted)]
+    if len(partial) == 1:
+        return partial[0]
+    if partial:
+        raise ValueError(
+            f"'{name}' is ambiguous; matches: {', '.join(partial)}"
+        )
+    raise ValueError(
+        f"Unknown table '{name}'. Choose from: {', '.join(names)}"
+    )
+
+
+def all_rows(database, source_name):
+    """Every row and column of one table (or pre-joined view).
+
+    Lets users browse the raw contents of the database. The name is
+    validated against the schema_meta whitelist, so arbitrary SQL can
+    never be injected through this parameter.
+    """
+    source = schema_meta.get_source(_match_source(source_name))
+    aliases = [alias for alias, _expr in source["columns"]]
+    sql, params = querybuilder.build_select(source, aliases)
+    return database.run(sql, params)
+
+
+def _option_query(sql):
+    """Return an option provider that lists a column's values.
+
+    Providers feed the optional parameter dropdowns in the GUI (and
+    the ``?`` listing in the CLI). They run against the live database
+    so the choices always reflect the current data. *context* maps
+    the query's other parameter prompts to their current raw text;
+    providers built here list independent values and ignore it.
+    """
+    def provider(database, _context=None):
+        _columns, rows = database.run(sql)
+        return [str(row[0]) for row in rows if row[0] is not None]
+    return provider
+
+
+course_names = _option_query(
+    "SELECT DISTINCT name FROM course ORDER BY name"
+)
+lecturer_surnames = _option_query(
+    "SELECT DISTINCT lecturerslastname FROM lecturers "
+    "ORDER BY lecturerslastname"
+)
+semesters = _option_query(
+    "SELECT DISTINCT semester FROM enrollments ORDER BY semester"
+)
+expertise_areas = _option_query(
+    "SELECT DISTINCT area_of_expertise FROM lecturer_expertise "
+    "ORDER BY area_of_expertise"
+)
+department_names = _option_query(
+    "SELECT DepartmentName FROM departments ORDER BY DepartmentName"
+)
+student_ids = _option_query(
+    "SELECT idstudents FROM students ORDER BY idstudents"
+)
+publication_years = _option_query(
+    "SELECT DISTINCT publication_year FROM lecturer_publications "
+    "ORDER BY publication_year DESC"
+)
+
+
+def table_names(_database, _context=None):
+    """Whitelisted table/view names for the browse query."""
+    return list(schema_meta.SOURCE_NAMES)
+
+
+LECTURERS_FOR_COURSE_SQL = """
+    SELECT DISTINCT l.lecturerslastname
+    FROM enrollments AS e
+    JOIN lecturers AS l ON l.LecturerID = e.lecturer_id
+    JOIN course AS c ON c.Course_code = e.course_code
+    WHERE LOWER(c.name) = LOWER(?)
+    ORDER BY l.lecturerslastname
+"""
+
+COURSES_FOR_LECTURER_SQL = """
+    SELECT DISTINCT c.name
+    FROM enrollments AS e
+    JOIN course AS c ON c.Course_code = e.course_code
+    JOIN lecturers AS l ON l.LecturerID = e.lecturer_id
+    WHERE LOWER(l.lecturerslastname) = LOWER(?)
+    ORDER BY c.name
+"""
+
+
+def lecturer_surnames_for_course(database, context=None):
+    """Lecturer surnames, narrowed to the chosen course (if any).
+
+    Cascading provider for the course-roster query: once a course is
+    selected, only lecturers who actually teach it are offered. With
+    no course chosen yet, every surname is offered.
+    """
+    course = (context or {}).get("Course name", "").strip()
+    if not course:
+        return lecturer_surnames(database)
+    _columns, rows = database.run(
+        LECTURERS_FOR_COURSE_SQL, (course,)
+    )
+    return [row[0] for row in rows]
+
+
+def course_names_for_lecturer(database, context=None):
+    """Course names, narrowed to the chosen lecturer (if any).
+
+    Mirror of :func:`lecturer_surnames_for_course` so the filtering
+    works in both directions.
+    """
+    surname = (context or {}).get("Lecturer surname", "").strip()
+    if not surname:
+        return course_names(database)
+    _columns, rows = database.run(
+        COURSES_FOR_LECTURER_SQL, (surname,)
+    )
+    return [row[0] for row in rows]
+
+
+# Menu definition used by main.py and gui.py. Each parameter is a
+# tuple of (prompt, converter applied to the raw input, optional
+# option provider used for dropdowns / the CLI "?" listing).
 CATALOGUE = (
     {
         "title": ("Students in a specific course taught by a "
                   "particular lecturer"),
         "params": (
-            ("Course name (e.g. Databases and Information Systems)",
-             str),
-            ("Lecturer surname (e.g. Hopper)", str),
+            ("Course name", str, course_names_for_lecturer),
+            ("Lecturer surname", str, lecturer_surnames_for_course),
         ),
         "runner": students_in_course,
     },
     {
         "title": "Students not registered in a given semester",
         "params": (
-            ("Semester (e.g. 2026-S2)", str),
+            ("Semester", str, semesters),
         ),
         "runner": unregistered_students,
     },
     {
         "title": "Lecturers with expertise in a research area",
         "params": (
-            ("Research area (e.g. Machine Learning)", str),
+            ("Research area", str, expertise_areas),
         ),
         "runner": lecturers_by_expertise,
     },
     {
         "title": "Courses taught by lecturers in a department",
         "params": (
-            ("Department (e.g. Computer Science)", str),
+            ("Department", str, department_names),
         ),
         "runner": courses_by_department,
     },
@@ -243,29 +383,36 @@ CATALOGUE = (
         "title": ("Final-year students with an average grade above a "
                   "threshold"),
         "params": (
-            ("Grade threshold in percent (e.g. 70)", float),
+            ("Grade threshold in percent (e.g. 70)", float, None),
         ),
         "runner": top_final_year_students,
     },
     {
         "title": "Faculty advisor contact details for a student",
         "params": (
-            ("Student ID (e.g. 1001)", int),
+            ("Student ID", int, student_ids),
         ),
         "runner": advisor_contact,
     },
     {
         "title": "Students advised by a specific lecturer",
         "params": (
-            ("Lecturer surname (e.g. Turing)", str),
+            ("Lecturer surname", str, lecturer_surnames),
         ),
         "runner": advisees_of_lecturer,
     },
     {
         "title": "Lecturer publications report for a specific year",
         "params": (
-            ("Publication year (e.g. 2026)", int),
+            ("Publication year", int, publication_years),
         ),
         "runner": publications_in_year,
+    },
+    {
+        "title": "Show all rows in a chosen table",
+        "params": (
+            ("Table or view name", str, table_names),
+        ),
+        "runner": all_rows,
     },
 )
