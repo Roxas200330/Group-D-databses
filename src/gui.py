@@ -120,19 +120,65 @@ class StandardTab(ttk.Frame):
             child.destroy()
         self.entries = []
         entry_specs = queries.CATALOGUE[self.current]["params"]
-        for row, (prompt, converter) in enumerate(entry_specs):
+        for row, (prompt, converter, options) in enumerate(
+            entry_specs
+        ):
             label = ttk.Label(self.params_frame, text=prompt + ":")
-            field = ttk.Entry(self.params_frame, width=34)
+            field = self._make_field(options)
             label.grid(row=row, column=0, sticky="w", **PAD)
             field.grid(row=row, column=1, sticky="ew", **PAD)
-            self.entries.append((prompt, converter, field))
+            if isinstance(field, ttk.Combobox):
+                field.bind(
+                    "<<ComboboxSelected>>", self._refresh_options
+                )
+            self.entries.append((prompt, converter, field, options))
         self.params_frame.columnconfigure(1, weight=1)
+
+    def _make_field(self, options):
+        """Build an input widget for one parameter.
+
+        Parameters with an option provider get an editable dropdown
+        of current values from the database; the user can still type
+        a value that is not in the list. Anything else (or a provider
+        failure) falls back to a plain text entry.
+        """
+        if options is not None:
+            try:
+                values = options(self.app.database)
+            except Exception:  # pragma: no cover - defensive
+                values = []
+            if values:
+                return ttk.Combobox(
+                    self.params_frame, width=32, values=values
+                )
+        return ttk.Entry(self.params_frame, width=34)
+
+    def _refresh_options(self, _event=None):
+        """Re-filter dependent dropdowns after a selection changes.
+
+        Passes every field's current text to each option provider, so
+        cascading providers (e.g. lecturers narrowed to the chosen
+        course) can filter. Only the option lists are replaced --
+        text the user has already typed is never touched.
+        """
+        context = {
+            prompt: field.get().strip()
+            for prompt, _converter, field, _options in self.entries
+        }
+        for _prompt, _converter, field, options in self.entries:
+            if options is None or not isinstance(field, ttk.Combobox):
+                continue
+            try:
+                values = options(self.app.database, context)
+            except Exception:  # pragma: no cover - defensive
+                continue
+            field.configure(values=values)
 
     def _run(self):
         """Validate parameters, run the query, show the results."""
         entry = queries.CATALOGUE[self.current]
         values = []
-        for prompt, converter, field in self.entries:
+        for prompt, converter, field, _options in self.entries:
             raw = field.get().strip()
             if not raw:
                 messagebox.showwarning(

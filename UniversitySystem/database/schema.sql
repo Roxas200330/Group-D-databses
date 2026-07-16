@@ -86,8 +86,7 @@ CREATE TABLE `unisystem`.`students` (
 CREATE TABLE `unisystem`.`programs` (
   `name` VARCHAR(45) NOT NULL,
   `degreeAwarded` VARCHAR(45) NOT NULL,
-  `duration` VARCHAR(45) NOT NULL,
-  `programscol` VARCHAR(45) NOT NULL,
+  `duration_years` INT NOT NULL,
   PRIMARY KEY (`name`));
 
 

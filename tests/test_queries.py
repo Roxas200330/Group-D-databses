@@ -253,7 +253,7 @@ class QueryFunctionTests(unittest.TestCase):
         _cols, rows = queries.all_rows(
             self.database, "Enrolments (raw)"
         )
-        self.assertEqual(len(rows), 89)
+        self.assertEqual(len(rows), 92)
 
     def test_all_rows_supports_joined_views(self):
         cols, rows = queries.all_rows(
@@ -274,13 +274,113 @@ class QueryFunctionTests(unittest.TestCase):
             with self.subTest(title=entry["title"]):
                 self.assertTrue(entry["title"])
                 self.assertTrue(callable(entry["runner"]))
-                for prompt, converter in entry["params"]:
+                for prompt, converter, options in entry["params"]:
                     self.assertTrue(prompt)
                     self.assertTrue(callable(converter))
+                    if options is not None:
+                        self.assertTrue(callable(options))
 
     def test_all_rows_is_on_the_menu(self):
         runners = [entry["runner"] for entry in queries.CATALOGUE]
         self.assertIn(queries.all_rows, runners)
+
+    # -- parameter option providers -------------------------------------
+
+    def test_course_name_options(self):
+        names = queries.course_names(self.database)
+        self.assertEqual(len(names), 24)
+        self.assertIn("Databases and Information Systems", names)
+        self.assertEqual(names, sorted(names))
+
+    def test_department_options(self):
+        names = queries.department_names(self.database)
+        self.assertEqual(len(names), 12)
+        self.assertIn("Computer Science", names)
+
+    def test_semester_options(self):
+        values = queries.semesters(self.database)
+        self.assertIn("2026-S2", values)
+
+    def test_student_id_options_are_valid_inputs(self):
+        ids = queries.student_ids(self.database)
+        self.assertEqual(len(ids), 30)
+        self.assertEqual(ids[0], "1001")
+        for value in ids:
+            int(value)  # every option must convert cleanly
+
+    def test_publication_year_options_newest_first(self):
+        years = queries.publication_years(self.database)
+        self.assertEqual(years, sorted(years, reverse=True))
+        self.assertIn("2026", years)
+
+    def test_table_name_options_match_whitelist(self):
+        self.assertEqual(
+            queries.table_names(self.database),
+            list(schema_meta.SOURCE_NAMES),
+        )
+
+    # -- cascading option providers -------------------------------------
+
+    def test_lecturers_narrowed_to_chosen_course(self):
+        surnames = queries.lecturer_surnames_for_course(
+            self.database, {"Course name": "Linear Algebra"}
+        )
+        self.assertEqual(surnames, ["Johnson", "Noether"])
+
+    def test_lecturer_narrowing_is_case_insensitive(self):
+        surnames = queries.lecturer_surnames_for_course(
+            self.database, {"Course name": "linear algebra"}
+        )
+        self.assertEqual(surnames, ["Johnson", "Noether"])
+
+    def test_courses_narrowed_to_chosen_lecturer(self):
+        names = queries.course_names_for_lecturer(
+            self.database, {"Lecturer surname": "Turing"}
+        )
+        self.assertEqual(
+            names,
+            ["Machine Learning", "Natural Language Processing"],
+        )
+
+    def test_blank_context_offers_everything(self):
+        self.assertEqual(
+            len(queries.lecturer_surnames_for_course(
+                self.database, {"Course name": ""}
+            )),
+            18,
+        )
+        self.assertEqual(
+            len(queries.course_names_for_lecturer(self.database)),
+            24,
+        )
+
+    def test_unknown_course_context_offers_nothing(self):
+        surnames = queries.lecturer_surnames_for_course(
+            self.database, {"Course name": "Basket Weaving"}
+        )
+        self.assertEqual(surnames, [])
+
+    # -- seed-data integrity --------------------------------------------
+
+    def test_every_course_has_a_lecturer(self):
+        _cols, rows = self.database.run(
+            """
+            SELECT c.Course_code, c.name
+            FROM course AS c
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM enrollments AS e
+                WHERE e.course_code = c.Course_code
+            )
+            """
+        )
+        self.assertEqual(rows, [], f"courses without lecturers: {rows}")
+
+    def test_business_strategy_has_a_lecturer(self):
+        surnames = queries.lecturer_surnames_for_course(
+            self.database, {"Course name": "Business Strategy"}
+        )
+        self.assertEqual(surnames, ["Drucker"])
 
 
 if __name__ == "__main__":

@@ -10,8 +10,10 @@ from unittest import mock
 
 try:
     import tkinter as tk
+    from tkinter import ttk
 except ImportError:  # pragma: no cover - depends on installation
     tk = None
+    ttk = None
 
 import queries
 import support
@@ -84,6 +86,43 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(len(rows), 14)
         osei = [row for row in rows if row[2] == "Osei"]
         self.assertEqual(osei[0][4], "-")
+
+    def test_parameter_dropdowns_offer_valid_values(self):
+        tab = self.app.standard_tab
+        tab.listbox.selection_clear(0, "end")
+        tab.listbox.selection_set(0)
+        tab._on_select()
+        course_field = tab.entries[0][2]
+        self.assertIsInstance(course_field, ttk.Combobox)
+        self.assertIn(
+            "Databases and Information Systems",
+            course_field["values"],
+        )
+
+    def test_cascading_dropdowns_filter_each_other(self):
+        tab = self.app.standard_tab
+        tab.listbox.selection_clear(0, "end")
+        tab.listbox.selection_set(0)
+        tab._on_select()
+        course_field = tab.entries[0][2]
+        lecturer_field = tab.entries[1][2]
+        # selection events are wired on both dropdowns
+        self.assertTrue(course_field.bind("<<ComboboxSelected>>"))
+        course_field.set("Linear Algebra")
+        tab._refresh_options()
+        self.assertEqual(
+            set(lecturer_field["values"]), {"Johnson", "Noether"}
+        )
+        # the user's chosen course text is never touched
+        self.assertEqual(course_field.get(), "Linear Algebra")
+
+    def test_free_numeric_parameter_stays_plain_entry(self):
+        tab = self.app.standard_tab
+        tab.listbox.selection_clear(0, "end")
+        tab.listbox.selection_set(4)  # grade threshold query
+        tab._on_select()
+        field = tab.entries[0][2]
+        self.assertNotIsInstance(field, ttk.Combobox)
 
     def test_missing_parameter_warns(self):
         tab = self.app.standard_tab
