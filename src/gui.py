@@ -41,11 +41,23 @@ def _column_width(header, rows, index):
     return max(80, min(340, longest * 8))
 
 
+def _sort_key(value):
+    """Order cells numerically when possible, missing values last."""
+    text = str(value)
+    if text == "-":
+        return (2, "")
+    try:
+        return (0, float(text))
+    except ValueError:
+        return (1, text.lower())
+
+
 class ResultsPane(ttk.LabelFrame):
     """Scrollable table of query results, shared by both tabs."""
 
     def __init__(self, parent):
         super().__init__(parent, text="Results")
+        self._sort_state = None
         self.tree = ttk.Treeview(self, show="headings", height=12)
         y_scroll = ttk.Scrollbar(
             self, orient="vertical", command=self.tree.yview
@@ -56,22 +68,37 @@ class ResultsPane(ttk.LabelFrame):
         self.tree.configure(
             yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set
         )
-        self.status = ttk.Label(self, text="Run a query to see results.")
+        bottom = ttk.Frame(self)
+        self.status = ttk.Label(
+            bottom, text="Run a query to see results."
+        )
+        self.clear_button = ttk.Button(
+            bottom, text="Clear results", command=self.clear,
+            state="disabled",
+        )
+        self.status.pack(side="left")
+        self.clear_button.pack(side="right")
         self.tree.grid(row=0, column=0, sticky="nsew")
         y_scroll.grid(row=0, column=1, sticky="ns")
         x_scroll.grid(row=1, column=0, sticky="ew")
-        self.status.grid(row=2, column=0, columnspan=2, sticky="w")
+        bottom.grid(row=2, column=0, columnspan=2, sticky="ew")
         self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
 
     def show(self, columns, rows):
         """Replace the table contents with a new result set."""
         self.tree.delete(*self.tree.get_children())
+        self._sort_state = None
         self.tree["columns"] = list(columns)
         for index, name in enumerate(columns):
-            self.tree.heading(name, text=name)
+            self.tree.heading(
+                name, text=name, anchor="center",
+                command=lambda name=name: self._sort(name),
+            )
             width = _column_width(name, rows, index)
-            self.tree.column(name, width=width, stretch=True)
+            self.tree.column(
+                name, width=width, stretch=True, anchor="center"
+            )
         for row in rows:
             values = ["-" if v is None else v for v in row]
             self.tree.insert("", "end", values=values)
@@ -81,6 +108,32 @@ class ResultsPane(ttk.LabelFrame):
         if count == 0:
             text = "No results found."
         self.status.configure(text=text)
+        self.clear_button.configure(state="normal")
+
+    def clear(self):
+        """Empty the table and return to the initial state."""
+        self.tree.delete(*self.tree.get_children())
+        self.tree["columns"] = ()
+        self._sort_state = None
+        self.status.configure(text="Run a query to see results.")
+        self.clear_button.configure(state="disabled")
+
+    def _sort(self, column):
+        """Sort rows by a column; clicking again reverses the order."""
+        descending = self._sort_state == (column, False)
+        items = list(self.tree.get_children())
+        items.sort(
+            key=lambda item: _sort_key(self.tree.set(item, column)),
+            reverse=descending,
+        )
+        for index, item in enumerate(items):
+            self.tree.move(item, "", index)
+        self._sort_state = (column, descending)
+        for name in self.tree["columns"]:
+            text = name
+            if name == column:
+                text += " ▼" if descending else " ▲"
+            self.tree.heading(name, text=text)
 
 
 class StandardTab(ttk.Frame):

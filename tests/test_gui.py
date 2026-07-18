@@ -151,6 +151,70 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(self.dialogs[-1][0], "showerror")
         self.assertIn("Unknown table", self.dialogs[-1][1][1])
 
+    # -- results pane -------------------------------------------------
+
+    def _run_first_standard_query(self):
+        tab = self.app.standard_tab
+        tab.listbox.selection_clear(0, "end")
+        tab.listbox.selection_set(0)
+        tab._on_select()
+        tab.entries[0][2].insert(
+            0, "Databases and Information Systems"
+        )
+        tab.entries[1][2].insert(0, "Hopper")
+        tab._run()
+
+    def test_clear_button_empties_results(self):
+        results = self.app.results
+        self.assertEqual(
+            str(results.clear_button["state"]), "disabled"
+        )
+        self._run_first_standard_query()
+        self.assertEqual(
+            str(results.clear_button["state"]), "normal"
+        )
+        results.clear_button.invoke()
+        self.assertEqual(self._tree_rows(), [])
+        self.assertFalse(results.tree["columns"])
+        self.assertEqual(
+            results.status["text"], "Run a query to see results."
+        )
+        self.assertEqual(
+            str(results.clear_button["state"]), "disabled"
+        )
+
+    def test_results_are_centred(self):
+        self._run_first_standard_query()
+        tree = self.app.results.tree
+        self.assertTrue(tree["columns"])
+        for name in tree["columns"]:
+            self.assertEqual(
+                str(tree.heading(name)["anchor"]), "center"
+            )
+            self.assertEqual(
+                str(tree.column(name)["anchor"]), "center"
+            )
+
+    def test_click_to_sort_columns(self):
+        builder = self.app.builder_tab
+        builder.source_var.set("Enrolment details (joined)")
+        builder._on_source_change()
+        builder._run()
+        results = self.app.results
+        tree = results.tree
+
+        def grades():
+            return [float(row[-1]) for row in self._tree_rows()
+                    if row[-1] != "-"]
+
+        self.assertTrue(tree.heading("grade")["command"])
+        results._sort("grade")
+        self.assertEqual(grades(), sorted(grades()))
+        self.assertIn("▲", tree.heading("grade")["text"])
+        results._sort("grade")
+        self.assertEqual(grades(), sorted(grades(), reverse=True))
+        self.assertIn("▼", tree.heading("grade")["text"])
+
     # -- query builder tab --------------------------------------------
 
     def test_builder_filter_sort_and_preview(self):
