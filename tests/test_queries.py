@@ -142,11 +142,21 @@ class QueryFunctionTests(unittest.TestCase):
             self.database, 70
         )
         self.assertEqual(
-            [(row[0], row[5]) for row in rows],
+            [(row[0], row[6]) for row in rows],
             [(1013, 85.0), (1020, 82.0), (1008, 80.0),
              (1001, 78.0), (1017, 74.5), (1026, 72.0),
              (1003, 71.0)],
         )
+
+    def test_final_year_shows_programme_duration(self):
+        cols, rows = queries.top_final_year_students(
+            self.database, 70
+        )
+        self.assertEqual(cols[4], "year_of_study")
+        self.assertEqual(cols[5], "duration_years")
+        self.assertTrue(rows)
+        for row in rows:
+            self.assertGreaterEqual(row[4], row[5])
 
     def test_final_year_excludes_low_average_and_graduated(self):
         _cols, rows = queries.top_final_year_students(
