@@ -81,6 +81,7 @@ TOP_FINAL_YEAR_STUDENTS_SQL = """
            s.studentlastname AS last_name,
            s.program_enrolled,
            s.year_of_study,
+           p.duration_years,
            ROUND(AVG(e.grade), 1) AS average_grade
     FROM students AS s
     JOIN programs AS p ON p.name = s.program_enrolled
@@ -89,7 +90,7 @@ TOP_FINAL_YEAR_STUDENTS_SQL = """
       AND s.graduation_status <> 'Graduated'
       AND e.grade IS NOT NULL
     GROUP BY s.idstudents, s.studentfirstname, s.studentlastname,
-             s.program_enrolled, s.year_of_study
+             s.program_enrolled, s.year_of_study, p.duration_years
     HAVING AVG(e.grade) > ?
     ORDER BY average_grade DESC
 """
@@ -179,7 +180,9 @@ def top_final_year_students(database, threshold=70):
     Covers "List all students with an average grade above 70% who are
     in their final year of studies". Final year means year_of_study
     has reached the programme's duration_years; graduated students and
-    ungraded (in-progress) enrolments are excluded.
+    ungraded (in-progress) enrolments are excluded. The programme's
+    duration_years is included in the output so users can verify the
+    final-year condition against year_of_study.
     """
     return database.run(TOP_FINAL_YEAR_STUDENTS_SQL, (threshold,))
 
